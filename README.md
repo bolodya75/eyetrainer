@@ -1,6 +1,6 @@
 # EyeTrainer (a trainer for coping with squint).
 
-__Important:__ I am not a doctor and cant give you any warranties, __use it on your own risk__. I did it for my self, and happy to share it here with someone also in souch need.
+__Important:__ I am not a doctor (and not a programmer) and cant give you any warranties, __use it on your own risk__. I did it for my self, and happy to share it here with someone also in souch need.
 
 To use the app you will need:
  * a smartphone (the app is operated by touchscreen)
