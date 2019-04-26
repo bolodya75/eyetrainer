@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Eyes trainer</title>
+    <style>
+    	* { padding: 0; margin: 0; }
+		html, body { width:100%; height:100%; } 
+    	canvas { background: #fff; display: block; margin: 0 auto;}
+    </style>
+</head>
+<body>
+<canvas id="myCanvas"></canvas>
+<script>
+
+var canvas = document.getElementById("myCanvas");
+var ctx = canvas.getContext("2d");
+var prevTime = performance.now(); //milliSec
+var movementSpeed = 3 // mm/sec
+var dx = 1;  //mm (calculated)
+var scale = 5.35; //pix = mm * scale
+var sampleSize = 54; // mm
+var eyeDist = 63; //dist between eyes (mm)
+var eyeDistMin = 45; //mm
+var eyeDistMax = 63;  //mm
+var eyeDistDelta = 10;  //mm
+var eyeDistCurrent = eyeDist;  //mm (calculated)
+var crossSize = 40;  //px
+var crossLine = 10;  //px
+var targetCenterX = canvas.width / 2;  //px
+var targetCenterY = canvas.height / 2;  //px
+var buttonsHeight = 30;    //px
+var mode = 1;
+var buttonsNo = 8;
+var touched = false;
+var touchIsClick = false;
+var touchDeltaX = .25;
+var touchedButton = false;
+var showSpeed = false;
+var speedRequestedTime = 0;
+var prevX = 0;
+var frameRadius = 14; //mm
+var flashInterval = 1000 //milisec
+var flashStartTime = performance.now(); //milisec
+
+var colorMode = 1;
+var colorObjects    = "#0095dd";
+var colorBG         = "#eee";
+var colorFrame      = "#000";
+var colorLines      = "#000";
+var colorCenterLine = "#ff0000";
+var colorLimitLine  = "#000";
+var colorFocus      = "#0095dd";
+
+var target = 1;
+var targets = 2;
+
+canvas.addEventListener("touchstart", handleStart, false);
+canvas.addEventListener("touchend",   handleEnd,   false);
+canvas.addEventListener("touchmove",  handleMove,  false);
+if(getCookie("scale")  ) {scale   = parseFloat(getCookie("scale"));  };
+if(getCookie("eyeDist")) {eyeDist = parseFloat(getCookie("eyeDist"));};
+
+draw();
+
+// cookie functions from https://stackoverflow.com/questions/14573223/set-cookie-and-get-cookie-with-javascript
+function setCookie(name,value,days) {
+    var expires = "";
+    if (days) {
+        var date = new Date();
+        date.setTime(date.getTime() + (days*24*60*60*1000));
+        expires = "; expires=" + date.toUTCString();
+    }
+    document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+}
+function getCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+    }
+    return null;
+}
+function eraseCookie(name) {   
+    document.cookie = name+'=; Max-Age=-99999999;';  
+}
+// --------------------------------------------------------------------------------------------------------------------
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+function setColors(){
+	switch(colorMode){
+		case 1:
+			colorObjects    = "#0095dd";
+			colorBG         = "#eee";
+			colorFrame      = "#000";
+			colorLines      = "#000";
+			colorCenterLine = "#ff0000";
+			colorLimitLine  = "#000";
+			colorFocus      = "#0095dd";
+			break;
+		case 2:
+			colorObjects    = "#0095dd";
+			colorBG         = "#000";
+			colorFrame      = "#fff";
+			colorLines      = "#eee";
+			colorCenterLine = "#ff0000";
+			colorLimitLine  = "#fff";
+			colorFocus      = "#666";
+			break;
+		case 3:
+			colorObjects    = "#0095dd";
+			colorBG         = "#eee";
+			colorFrame      = "#000";
+			colorLines      = "#eee";
+			colorCenterLine = "#ff0000";
+			colorLimitLine  = "#555";
+			colorFocus      = "#666";
+			break;
+		case 4:
+			colorObjects    = "#0095dd";
+			colorBG         = "#eee";
+			colorFrame      = "#000";
+			colorLines      = "#eee";
+			colorCenterLine = "#ff0000";
+			colorLimitLine  = "#555";
+			colorFocus      = "#666";
+			break;
+	}
+}
+
+function drawBackground() {
+    ctx.fillStyle = colorBG;
+	ctx.rect(0, 0, canvas.width, canvas.height);
+    ctx.fill();
+};
+
+function drawFrame(){
+	ctx.beginPath();
+	ctx.rect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = colorFrame;
+    ctx.fill();
+	ctx.beginPath();
+	ctx.arc(targetCenterX - eyeDistCurrent * scale / 2, targetCenterY,frameRadius*scale,0,2*Math.PI);
+	ctx.arc(targetCenterX + eyeDistCurrent * scale / 2, targetCenterY,frameRadius*scale,0,2*Math.PI);
+    ctx.fillStyle = colorBG;
+    ctx.fill();
+}
+
+function flash(){
+	ctx.beginPath();
+	if(flashStartTime+flashInterval*2>performance.now()){
+		if(flashStartTime+flashInterval>performance.now()){
+			ctx.arc(targetCenterX - eyeDistCurrent * scale / 2, targetCenterY,frameRadius*scale,0,2*Math.PI);
+		}else{
+			ctx.arc(targetCenterX + eyeDistCurrent * scale / 2, targetCenterY,frameRadius*scale,0,2*Math.PI);
+		};
+	}else{
+		flashStartTime = performance.now();
+	}
+    ctx.fillStyle = colorFrame;
+    ctx.fill();
+};
+
+function drawTarget(x,y,pos) {
+	ctx.beginPath();
+	switch(target){
+		case 1:
+			var side = (crossSize - crossLine) / 2;
+			x = x - crossSize / 2;
+			y = y - crossSize / 2;
+			ctx.moveTo(x, y + side);
+			ctx.lineTo(x + side, y + side);
+			ctx.lineTo(x + side, y);
+			ctx.lineTo(x + side + crossLine, y);
+			ctx.lineTo(x + side + crossLine, y + side);
+			ctx.lineTo(x + side * 2 + crossLine, y + side);
+			ctx.lineTo(x + side * 2 + crossLine, y + side + crossLine);
+			ctx.lineTo(x + side + crossLine, y + side + crossLine);
+			ctx.lineTo(x + side + crossLine, y + side * 2 + crossLine);
+			ctx.lineTo(x + side, y + side * 2 + crossLine);
+			ctx.lineTo(x + side, y + side + crossLine);
+			ctx.lineTo(x, y + side + crossLine);
+			ctx.lineTo(x, y + side);
+			break;
+		case 2:
+			y=y-5;
+			ctx.arc(x,y+15,20,0,2*Math.PI);
+			ctx.arc(x,y-12,15,0,2*Math.PI);
+			if(pos=="L"){
+				ctx.moveTo(x+10,y-22);
+				ctx.lineTo(x+10,y-35);
+				ctx.lineTo(x,y-26);
+				ctx.lineTo(x-10,y-35);
+				ctx.lineTo(x-10,y-22);
+				ctx.arc(x,y-12,15,1.25*Math.PI,1.75*Math.PI);
+			};
+			if(pos=="R"){
+				ctx.moveTo(x-5,y+34);
+				ctx.arc(x+10,y+34,15,Math.PI,0,true);
+				ctx.arc(x+14,y+34,10,0,Math.PI);
+			};
+			break;
+		case 3:
+			break;
+	}
+	ctx.fillStyle = colorObjects;
+	ctx.fill();
+
+    ctx.font = "12px Arial";
+    ctx.fillStyle = colorObjects;
+    ctx.fillText((eyeDist - eyeDistCurrent).toFixed(0)+" mm", x, y + crossSize + 17);
+}
+
+function drawScale() {
+	var cardViewPart=100;
+	var radius = 17;
+	ctx.beginPath();
+	ctx.moveTo(10,1);
+	ctx.lineTo(10,cardViewPart - radius);
+	ctx.arc(10 + radius, cardViewPart - radius, radius, Math.PI, .5 * Math.PI, true);
+	ctx.lineTo(10 + sampleSize * scale - radius, cardViewPart);
+	ctx.arc(10 + sampleSize * scale - radius, cardViewPart - radius, radius, .5*Math.PI, 0, true);
+	ctx.lineTo(10 + sampleSize * scale, 1);
+	ctx.strokeStyle = colorLines;
+	ctx.stroke();
+    ctx.font = "16px Arial";
+    ctx.fillStyle = colorLines;
+    ctx.fillText(sampleSize + " mm", 25 * scale - 15, 15);
+}
+
+function drawButtons(){
+	var butWidth = canvas.width / buttonsNo;
+    ctx.fillStyle = colorFocus;
+	ctx.fillRect( butWidth * (mode - 1), canvas.height - buttonsHeight, butWidth, buttonsHeight);
+	ctx.beginPath();
+	ctx.moveTo( 0, canvas.height - buttonsHeight);
+	ctx.lineTo( canvas.width, canvas.height - buttonsHeight);
+	for(var a = 1; a < buttonsNo; a++){
+		ctx.moveTo( butWidth * a , canvas.height - buttonsHeight);
+		ctx.lineTo( butWidth * a, canvas.height);
+	};
+	ctx.strokeStyle = colorLines;
+	ctx.stroke();
+    ctx.font = "10px Arial";
+    ctx.fillStyle = colorLines;
+    ctx.fillText("manual", butWidth * (1-1)+5,  canvas.height - 11);
+    ctx.fillText("-> o <-", butWidth * (2-1)+5,  canvas.height - 11);
+    ctx.fillText("-> o ->",  butWidth * (3-1)+5,  canvas.height - 11);
+    ctx.fillText("settings",  butWidth * (4-1)+5,  canvas.height - 11);
+    ctx.fillText("Color "+colorMode,  butWidth * (5-1)+5,  canvas.height - 11);
+    ctx.fillText("pic "+target,  butWidth * (6-1)+5,  canvas.height - 11);
+    ctx.fillText("(v)-",  butWidth * (7-1)+5,  canvas.height - 11);
+    ctx.fillText("(v)+",  butWidth * (8-1)+5,  canvas.height - 11);
+}
+
+function drawMode1Lines(){
+	ctx.beginPath();
+	ctx.moveTo( targetCenterX - eyeDist * .5 * scale, targetCenterY + 60 );
+	ctx.lineTo( targetCenterX - eyeDist * .5 * scale, targetCenterY - 60 );
+	ctx.moveTo( targetCenterX + eyeDist * .5 * scale, targetCenterY + 60 );
+	ctx.lineTo( targetCenterX + eyeDist * .5 * scale, targetCenterY - 60 );
+	ctx.strokeStyle = colorCenterLine;
+	ctx.stroke();
+}
+
+function drawMode2Lines(){
+	ctx.beginPath();
+	ctx.moveTo( targetCenterX - eyeDist * .5 * scale, targetCenterY + 60 );
+	ctx.lineTo( targetCenterX - eyeDist * .5 * scale, targetCenterY - 60 );
+	ctx.moveTo( targetCenterX + eyeDist * .5 * scale, targetCenterY + 60 );
+	ctx.lineTo( targetCenterX + eyeDist * .5 * scale, targetCenterY - 60 );
+	ctx.strokeStyle = colorCenterLine;
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.moveTo( targetCenterX - eyeDistMax * .5 * scale, targetCenterY );
+	ctx.lineTo( targetCenterX - eyeDistMax * .5 * scale, targetCenterY - 50 );
+	ctx.moveTo( targetCenterX + eyeDistMax * .5 * scale, targetCenterY );
+	ctx.lineTo( targetCenterX + eyeDistMax * .5 * scale, targetCenterY - 50 );
+	ctx.moveTo( targetCenterX - eyeDistMin * .5 * scale, targetCenterY );
+	ctx.lineTo( targetCenterX - eyeDistMin * .5 * scale, targetCenterY + 50 );
+	ctx.moveTo( targetCenterX + eyeDistMin * .5 * scale, targetCenterY );
+	ctx.lineTo( targetCenterX + eyeDistMin * .5 * scale, targetCenterY + 50 );
+	ctx.strokeStyle = colorLimitLine;
+	ctx.stroke();
+}
+
+function drawMode3Lines(){
+	ctx.beginPath();
+	ctx.moveTo( targetCenterX - eyeDist * .5 * scale, targetCenterY + 60 );
+	ctx.lineTo( targetCenterX - eyeDist * .5 * scale, targetCenterY - 60 );
+	ctx.moveTo( targetCenterX + eyeDist * .5 * scale, targetCenterY + 60 );
+	ctx.lineTo( targetCenterX + eyeDist * .5 * scale, targetCenterY - 60 );
+	ctx.strokeStyle = colorCenterLine;
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.moveTo( targetCenterX - eyeDistCurrent * .5 * scale, targetCenterY );
+	ctx.lineTo( targetCenterX - eyeDistCurrent * .5 * scale, targetCenterY - 50 );
+	ctx.moveTo( targetCenterX + eyeDistCurrent * .5 * scale, targetCenterY );
+	ctx.lineTo( targetCenterX + eyeDistCurrent * .5 * scale, targetCenterY - 50 );
+	
+	ctx.moveTo( canvas.width * .5 - eyeDistCurrent *.5 * scale - eyeDistDelta * .5 * scale, targetCenterY );
+	ctx.lineTo( canvas.width * .5 - eyeDistCurrent *.5 * scale - eyeDistDelta * .5 * scale, targetCenterY + 50 );
+	ctx.moveTo( canvas.width * .5 - eyeDistCurrent *.5 * scale + eyeDistDelta * .5 * scale, targetCenterY );
+	ctx.lineTo( canvas.width * .5 - eyeDistCurrent *.5 * scale + eyeDistDelta * .5 * scale, targetCenterY + 50 );
+	ctx.moveTo( canvas.width * .5 + eyeDistCurrent *.5 * scale - eyeDistDelta * .5 * scale, targetCenterY );
+	ctx.lineTo( canvas.width * .5 + eyeDistCurrent *.5 * scale - eyeDistDelta * .5 * scale, targetCenterY + 50 );
+	ctx.moveTo( canvas.width * .5 + eyeDistCurrent *.5 * scale + eyeDistDelta * .5 * scale, targetCenterY );
+	ctx.lineTo( canvas.width * .5 + eyeDistCurrent *.5 * scale + eyeDistDelta * .5 * scale, targetCenterY + 50 );
+	ctx.strokeStyle = colorLimitLine;
+	ctx.stroke();
+}
+
+function drawMode4Lines(){
+	ctx.beginPath();
+	ctx.moveTo( targetCenterX - eyeDist * .5 * scale, targetCenterY + 60 );
+	ctx.lineTo( targetCenterX - eyeDist * .5 * scale, targetCenterY - 60 );
+	ctx.moveTo( targetCenterX + eyeDist * .5 * scale, targetCenterY + 60 );
+	ctx.lineTo( targetCenterX + eyeDist * .5 * scale, targetCenterY - 60 );
+	ctx.strokeStyle = colorCenterLine;
+	ctx.stroke();
+    ctx.font = "20px Arial";
+    ctx.fillStyle = colorLines;
+    ctx.fillText("Scale: " + Math.round(scale*100)/100, canvas.width * .25 ,  canvas.height * .5 - 60);
+    ctx.fillText("Distance: " + Math.round(eyeDist*10)/10 + " mm", canvas.width * .25 ,  canvas.height * .5 - 30);
+}
+
+function drawModeSpeedChange(){
+    ctx.font = "10px Arial";
+    ctx.fillStyle = colorObjects;
+    ctx.fillText("Speed: " + Math.round(movementSpeed*10)/10 + " mm/sec", targetCenterX - eyeDistCurrent * .5 * scale - 50, targetCenterY + 60);
+    ctx.fillText("Speed: " + Math.round(movementSpeed*10)/10 + " mm/sec", targetCenterX + eyeDistCurrent * .5 * scale - 50, targetCenterY + 60);
+}
+
+function handleStart(evt){
+	touched = true;
+	prevX = evt.touches[0].clientX;
+	if ( evt.touches[0].clientY > canvas.height - buttonsHeight){    //если кнопки
+		touchedButton = true;
+		var button = Math.round(evt.touches[0].clientX / ( canvas.width / buttonsNo ) + .5);  // нажатая кнопка
+		if(button<5){mode=button};
+		if(button==5){
+			if( colorMode < 4 ){
+				colorMode = colorMode + 1;
+				setColors();
+			}else{
+				colorMode = 1;
+				setColors();
+			};
+		};
+		if(button==6){
+			if(target<targets){
+				target=target+1;
+			}else{
+				target=1;
+			};
+		};
+		if(button==7 && movementSpeed >=   .6){movementSpeed = movementSpeed - .5; showSpeed=true; speedRequestedTime = performance.now() };
+		if(button==8 && movementSpeed <= 19.6){movementSpeed = movementSpeed + .5; showSpeed=true; speedRequestedTime = performance.now() };
+	}else{
+		touchIsClick = true;
+	};
+}
+
+function handleEnd(evt){
+	touched = false;
+	touchedButton = false;
+	switch(mode){
+		case 1:
+			if(touchIsClick){
+				if( prevX > canvas.width/2 ){
+					eyeDistCurrent = eyeDistCurrent + touchDeltaX;
+				}else{
+					eyeDistCurrent = eyeDistCurrent - touchDeltaX;
+				};
+			}
+			break;
+		case 4:
+			eraseCookie("scale");
+			setCookie("scale", scale, 365);
+			eraseCookie("eyeDist");
+			setCookie("eyeDist", eyeDist, 365);
+			break;
+	};
+	touchIsClick = false;
+}
+
+function handleMove(evt){
+	touchIsClick = false;
+	if(!(touchedButton)){
+		var deltaX = ( evt.touches[0].clientX - prevX ) / scale;
+		switch(mode){
+			case 1:
+				eyeDistCurrent = eyeDistCurrent + deltaX * 2;
+				break;
+			case 2:
+				if(evt.touches[0].clientY < canvas.height/2){   //меняем максимальное значение
+					if(eyeDistMax >= eyeDistMin){
+						eyeDistMax = eyeDistMax + deltaX * 2;}
+					else{
+						eyeDistMax = eyeDistMin;
+					};
+					if( eyeDistCurrent > eyeDistMax ){
+						eyeDistCurrent=eyeDistMax
+					};
+				}else{												// меняем минимальное значение
+					if(eyeDistMin <= eyeDistMax){
+						eyeDistMin = eyeDistMin + deltaX * 2;}
+					else{
+						eyeDistMin = eyeDistMax;
+					};
+					if( eyeDistCurrent < eyeDistMin ){
+						eyeDistCurrent=eyeDistMin
+					};
+				};
+				break;
+			case 3:
+				if(evt.touches[0].clientY < canvas.height/2){
+					eyeDistCurrent = eyeDistCurrent + deltaX;
+				}else{
+					if( eyeDistDelta >= 0 ){
+						eyeDistDelta = eyeDistDelta + deltaX;
+					}else{
+						eyeDistDelta = 0;
+					};
+				};
+				if(targetCenterX >= canvas.width/2 + eyeDistDelta/2*scale){targetCenterX = canvas.width/2 + eyeDistDelta/2*scale};
+				if(targetCenterX <= canvas.width/2 - eyeDistDelta/2*scale){targetCenterX = canvas.width/2 - eyeDistDelta/2*scale};
+				break;
+			case 4:
+				if(evt.touches[0].clientY < canvas.height/2){
+					scale = scale + deltaX/100;
+				}else{
+					eyeDist = eyeDist + deltaX/20;
+				};
+				break;
+		}
+		prevX = evt.touches[0].clientX;
+	}
+}
+
+function draw() {
+	var now = performance.now();
+	var dt = now - prevTime;
+	if  ( dx > 0 ){
+		dx = movementSpeed * ( dt/1000 );
+	}else{
+		dx = - movementSpeed * ( dt/1000 );
+	};
+	prevTime = now;
+	
+	resizeCanvas();
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	drawBackground();
+	if(colorMode>=3){drawFrame()};
+	drawButtons();
+	drawTarget(targetCenterX - eyeDistCurrent * scale / 2, targetCenterY,"L");
+	drawTarget(targetCenterX + eyeDistCurrent * scale / 2, targetCenterY,"R");
+	if( speedRequestedTime < performance.now() - 1500 ){showSpeed=false};
+	if(showSpeed){drawModeSpeedChange()};
+	if(touched) {
+		switch(mode){
+			case 1:
+				drawMode1Lines();
+				break;
+			case 2:
+				drawMode2Lines();
+				break;
+			case 3:
+				drawMode3Lines();
+				break;
+		};
+	};
+	if(colorMode==4){flash()};
+	switch (mode) {
+		case  1:
+			targetCenterX = canvas.width/2;
+			targetCenterY = canvas.height/2;
+			break;
+		case  2:
+			if(eyeDistCurrent >= eyeDistMax){
+				eyeDistCurrent = eyeDistMax;
+				dx = -dx;
+			}
+			if(eyeDistCurrent <= eyeDistMin){
+				eyeDistCurrent = eyeDistMin;
+				dx = -dx;
+			}
+			eyeDistCurrent = eyeDistCurrent + dx;
+			targetCenterX = canvas.width/2;
+			targetCenterY = canvas.height/2;
+			break;
+		case  3:
+			if( targetCenterX > canvas.width/2 + eyeDistDelta/2*scale || targetCenterX < canvas.width/2 - eyeDistDelta/2*scale ){
+				dx = -dx;
+			}
+			targetCenterX = targetCenterX + dx * scale;
+			targetCenterY = canvas.height/2;
+			break;
+		case  4:
+			drawMode4Lines();
+			drawScale();
+			targetCenterX = canvas.width/2;
+			targetCenterY = canvas.height/2;
+			break;
+	};
+	requestAnimationFrame(draw);
+};
+</script>
+</body>
+</html>
