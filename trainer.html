@@ -152,17 +152,19 @@ function drawTarget(x,y,pos) {
 			break;
 		case 2:
 			y=y-5;
-			ctx.arc(x,y+15,20,0,2*Math.PI);
-			ctx.arc(x,y-12,15,0,2*Math.PI);
 			if(pos=="L"){
-				ctx.moveTo(x+10,y-22);
+				ctx.arc(x,y-12,15,.25*Math.PI,1.75*Math.PI,true);
 				ctx.lineTo(x+10,y-35);
 				ctx.lineTo(x,y-26);
 				ctx.lineTo(x-10,y-35);
 				ctx.lineTo(x-10,y-22);
-				ctx.arc(x,y-12,15,1.25*Math.PI,1.75*Math.PI);
-			};
+				ctx.arc(x,y-12,15,1.25*Math.PI,.75*Math.PI,true);
+
+				ctx.arc(x,y+15,20,1.3*Math.PI,1.7*Math.PI,true);
+				};
 			if(pos=="R"){
+				ctx.arc(x,y+15,20,0,2*Math.PI);
+				ctx.arc(x,y-12,15,0,2*Math.PI);
 				ctx.moveTo(x-5,y+34);
 				ctx.arc(x+10,y+34,15,Math.PI,0,true);
 				ctx.arc(x+14,y+34,10,0,Math.PI);
@@ -173,11 +175,13 @@ function drawTarget(x,y,pos) {
 	}
 	ctx.fillStyle = colorObjects;
 	ctx.fill();
-
+	
+	ctx.beginPath();
     ctx.font = "12px Arial";
     ctx.fillStyle = colorObjects;
     ctx.fillText((eyeDist - eyeDistCurrent).toFixed(0)+" mm", x, y + crossSize + 17);
 	
+	ctx.beginPath();
 	if(balans<0){
 		if(pos=="L"){
 			ctx.globalAlpha = - balans;
