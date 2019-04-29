@@ -1,4 +1,4 @@
-# A trainer for coping with squint.
+# [A trainer for coping with squint.](https://bolodya75.github.io/eyetrainer/)
 
 __Important:__ I am not a doctor (and not a programmer) and cant give you any warranties, __use it on your own risk__. I did it for my self, and happy to share it here with someone also in souch need.
 
