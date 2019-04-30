@@ -41,6 +41,7 @@ var speedRequestedTime = 0;
 var prevX = 0;
 var frameRadius = 14; //mm
 var flashInterval = 1000 //milisec
+var flashPhase = 1;    // flashes 1 to 2 and back
 var flashStartTime = performance.now(); //milisec
 
 var flashMode = 1;
@@ -112,19 +113,18 @@ function drawFrame(){
     ctx.fill();
 }
 
-function flash(){
+function flashTimer(){
 	ctx.beginPath();
 	if(flashStartTime+flashInterval*2>performance.now()){
 		if(flashStartTime+flashInterval>performance.now()){
-			ctx.arc(targetCenterX - eyeDistCurrent * scale / 2, targetCenterY,frameRadius*scale,0,2*Math.PI);
+			flashPhase=1;
 		}else{
-			ctx.arc(targetCenterX + eyeDistCurrent * scale / 2, targetCenterY,frameRadius*scale,0,2*Math.PI);
+			flashPhase=2;
 		};
 	}else{
 		flashStartTime = performance.now();
+			flashPhase=1;
 	}
-    ctx.fillStyle = colorFrame;
-    ctx.fill();
 };
 
 function drawTarget(x,y,pos) {
@@ -198,6 +198,25 @@ function drawTarget(x,y,pos) {
 		};
 	}
 	ctx.globalAlpha = 1;
+	
+	switch(flashMode){
+		case 2:
+			if(flashPhase==2){
+				ctx.beginPath();
+				ctx.arc(xCenter, yCenter, frameRadius*scale,0,2*Math.PI);
+				ctx.fillStyle = colorFrame;
+				ctx.fill();
+			}
+			break;
+		case 3:
+			if((flashPhase==1 && pos=="L")||(flashPhase==2 && pos=="R")){
+				ctx.beginPath();
+				ctx.arc(xCenter, yCenter, frameRadius*scale,0,2*Math.PI);
+				ctx.fillStyle = colorFrame;
+				ctx.fill();
+			}
+			break;
+	}
 }
 
 function drawScale() {
@@ -245,11 +264,21 @@ function drawButtons(){
     ctx.fillText("-> o <-", butWidth * (2-1)+5,  canvas.height - 11);
     ctx.fillText("-> o ->",  butWidth * (3-1)+5,  canvas.height - 11);
     ctx.fillText("settings",  butWidth * (4-1)+5,  canvas.height - 11);
-    ctx.fillText("FlashMode "+flashMode,  butWidth * (5-1)+5,  canvas.height - 11);
+    ctx.fillText("FlashMode "+(flashMode==1?"off":(flashMode==2?"(o)(o)":"(o)(-)")),  butWidth * (5-1)+5,  canvas.height - 11);
     ctx.fillText("pic "+target,  butWidth * (6-1)+5,  canvas.height - 11);
 	switch(mode){
 		case 1:
-			ctx.fillText("<<< balans "+Math.round(balans*100)/100+">>>",  canvas.width/2 - 100,  11);
+			switch(flashMode){
+				case 1:
+					ctx.fillText("<<< balans "+Math.round(balans*100)/100+">>>",  canvas.width/2 - 100,  11);
+					break;
+				case 2:
+					ctx.fillText("<<< flash speed >>>",  canvas.width/2 - 100,  11);
+					break;
+				case 3:
+					ctx.fillText("<<< flash speed >>>",  canvas.width/2 - 100,  11);
+					break;
+			}
 			break;
 		case 2:
 			ctx.fillText("<<< speed >>>",  canvas.width/2 - 100,  11);
@@ -391,7 +420,11 @@ function handleMove(evt){
 		switch(mode){
 			case 1:
 				if(evt.touches[0].clientY < buttonsHeight){
-					balans = evt.touches[0].clientX/canvas.width*2-1;
+					if(flashMode==1){
+						balans = evt.touches[0].clientX/canvas.width*2-1;
+					}else{
+						flashInterval = evt.touches[0].clientX/canvas.width*3900+100;
+					}
 				}else{
 					eyeDistCurrent = eyeDistCurrent + deltaX * 2;
 				};
@@ -459,6 +492,7 @@ function draw() {
 		dx = - movementSpeed * ( dt/1000 );
 	};
 	prevTime = now;
+	flashTimer();
 	
 	resizeCanvas();
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
