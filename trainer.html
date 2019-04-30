@@ -179,7 +179,7 @@ function drawTarget(x,y,pos) {
 	ctx.beginPath();
     ctx.font = "12px Arial";
     ctx.fillStyle = colorObjects;
-    ctx.fillText((eyeDist - eyeDistCurrent).toFixed(0)+" mm", x, y + crossSize + 17);
+    ctx.fillText((eyeDistCurrent - eyeDist).toFixed(0)+" mm", x, y + crossSize + 17);
 	
 	ctx.beginPath();
 	if(balans<0){
