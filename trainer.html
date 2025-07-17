@@ -11,6 +11,8 @@
 </head>
 <body>
 <canvas id="myCanvas"></canvas>
+<img hidden id='img1-L' src='3d_L.jpg'></img>
+<img hidden id='img1-R' src='3d_R.jpg'></img>
 <script>
 
 var canvas = document.getElementById("myCanvas");
@@ -55,7 +57,7 @@ var colorFocus      = "#666";
 var balans = 0;
 
 var target = 1;
-var targets = 2;
+var targets = 3;
 
 canvas.addEventListener("touchstart", handleStart, false);
 canvas.addEventListener("touchend",   handleEnd,   false);
@@ -130,9 +132,9 @@ function flashTimer(){
 function drawTarget(x,y,pos) {
 	var xCenter=x;
 	var yCenter=y;
-	ctx.beginPath();
 	switch(target){
 		case 1:
+			ctx.beginPath();
 			var side = (crossSize - crossLine) / 2;
 			x = x - crossSize / 2;
 			y = y - crossSize / 2;
@@ -149,8 +151,11 @@ function drawTarget(x,y,pos) {
 			ctx.lineTo(x + side, y + side + crossLine);
 			ctx.lineTo(x, y + side + crossLine);
 			ctx.lineTo(x, y + side);
+			ctx.fillStyle = colorObjects;
+			ctx.fill();
 			break;
 		case 2:
+			ctx.beginPath();
 			y=y-5;
 			if(pos=="L"){
 				ctx.arc(x,y-12,15,.25*Math.PI,1.75*Math.PI,true);
@@ -169,12 +174,19 @@ function drawTarget(x,y,pos) {
 				ctx.arc(x+10,y+34,15,0,Math.PI);
 				ctx.arc(x,y+15,20,.6*Math.PI,1.25*Math.PI);
 			};
+			ctx.fillStyle = colorObjects;
+			ctx.fill();
 			break;
 		case 3:
+			r=frameRadius*scale;
+			if(pos=="L"){
+			ctx.drawImage(document.getElementById('img1-L'), x-r, y-r, r*2, r*2); 
+			}
+			if(pos=="R"){
+			ctx.drawImage(document.getElementById('img1-R'), x-r, y-r, r*2, r*2); 
+			}
 			break;
 	}
-	ctx.fillStyle = colorObjects;
-	ctx.fill();
 	
 	ctx.beginPath();
     ctx.font = "12px Arial";
